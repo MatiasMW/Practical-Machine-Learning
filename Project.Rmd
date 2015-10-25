@@ -1,0 +1,88 @@
+---
+title: "Practical Machine Learning Project"
+author: "Matías"
+date: "21 de octubre de 2015"
+output: html_document
+---
+
+
+#Loading the Data
+```{r}
+library(caret)
+set.seed(4433)
+traindata <- read.csv("pml-training.csv", header = T, sep = ",")
+```
+
+#Cleaning Data
+
+##Removing variables with near zero varibilty 
+```{r}
+dim(traindata)
+nzv <- nearZeroVar(traindata)
+filtereddata <- traindata[, -nzv]
+
+dim(filtereddata)
+```
+
+##Removing variables with more than 14000 NA's
+```{r}
+c<-c()
+for (i in  1:100) {
+       if(sum(is.na(filtereddata[, i]))>14000) 
+          c <- c(c,i)
+       }
+new_data <- filtereddata[,-c]
+```
+
+##Removing id, name and time stamp; this variables are useless
+```{r}
+new_data <- new_data[, -c(1,2)]
+new_data <- new_data[,-3]
+```
+#Creating train and test partitions.
+###I create a training and a testing data set from the pml-training file.
+
+```{r}
+inTrain <- createDataPartition(y=new_data$classe, p=0.75, list = FALSE)
+training <- new_data[inTrain,]
+testing <- new_data[-inTrain,]
+```
+
+###There are some highly correlated variables, but since I'm going to use cart and random forest I choose to leave them.
+```{r}
+cor_mat <- cor(subset(new_data, select = -classe))
+highlycorrelated <- findCorrelation(cor_mat, cutoff = 0.75)
+names(new_data)[highlycorrelated]
+highlycorrelated 
+```
+#Training the model.
+```{r}
+library(rpart)
+modelFit1 <- rpart(classe ~ ., data=training, method="class")
+```
+
+```{r}
+library(rattle)
+fancyRpartPlot(modelFit1)
+```
+#Evaluating the model.
+```{r}
+predictions1 <- predict(modelFit1, testing, type = "class")
+confusionMatrix(predictions1, testing$classe)
+```
+###Doing the confusion Matrix we get the accuracy of the model, more than 85%, pretty high, but we will try with the random forest algorithm to see if we get better results
+
+#Training the new model.
+
+```{r}
+library(randomForest)
+modelFit2 <- randomForest(classe ~. , data=training)
+print(modelFit2)
+```
+
+#Evaluating the new model.
+```{r}
+predictions2 <- predict(modelFit2, testing, type = "class")
+confusionMatrix(predictions2, testing$classe)
+```
+###We can see that applying random forest we get better accuracy and less missclassifications.
